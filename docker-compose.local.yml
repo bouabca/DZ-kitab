@@ -1,0 +1,91 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: library_postgres
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    environment:
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - library_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: deps
+    container_name: library_migrate
+    env_file:
+      - .env.docker
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - library_network
+    volumes:
+      - ./drizzle:/app/drizzle
+      - ./db:/app/db
+      - ./src:/app/src
+      - ./drizzle.config.json:/app/drizzle.config.json
+      - ./drizzle.config.ts:/app/drizzle.config.ts
+    command: sh -c "sleep 10 && mkdir -p /app/drizzle && npx drizzle-kit generate && npx drizzle-kit migrate"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: library_app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.docker
+    environment:
+      # Override specific environment variables for Docker
+      - NODE_ENV=production
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXT_PUBLIC_API_URL=http://localhost:3000/
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - library_network
+    volumes:
+      - ./uploads:/app/uploads
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  adminer:
+    image: adminer:latest
+    container_name: library_adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    networks:
+      - library_network
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  library_network:
+    driver: bridge

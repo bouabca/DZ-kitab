@@ -1,4 +1,4 @@
-# EstinBib Digital Library System Diagrams
+# Dz-kitab Digital Library System Diagrams
 
 ## Diagram 1 - Database Entity Relationship
 

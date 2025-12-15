@@ -253,7 +253,7 @@ graph TB
     DRIZZLE --> POSTGRES
 ```
 
-## Diagram 3 - Authentication Flow with @estin.dz Restriction
+## Diagram 3 - Authentication Flow with @gmail.com Restriction
 
 ```mermaid
 sequenceDiagram
